@@ -1,0 +1,1 @@
+- [Discord bot deployment target reverting to autoscale](deploy-target-autoscale-revert.md) — always-on bots (Discord/RCON/etc) must use "vm" target; check getDeploymentInfo().deploymentType if user reports bot going offline, it may have silently reverted to autoscale.
