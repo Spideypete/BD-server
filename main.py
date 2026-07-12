@@ -35,7 +35,7 @@ async def self_ping_loop():
 
 @bot.event
 async def on_ready():
-    print(f"We have logged in as {bot.user}, created by KoZ")
+    print(f"We have logged in as {bot.user}, created by Spidey")
     print(f"Servers: {len(bot.guilds)} | Users: {len(bot.users)}")
     print(f"Invite: {nextcord.utils.oauth_url(bot.user.id)}")
     if not getattr(bot, "_self_ping_started", False):
