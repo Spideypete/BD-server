@@ -5,6 +5,36 @@ import os
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
+async def handle_errors(interaction, error):
+    try:
+        if isinstance(error, nextcord.NotFound):
+            message = "Interaction expired or not found."
+        elif isinstance(error, nextcord.HTTPException):
+            message = "HTTP error occurred."
+        elif isinstance(error, nextcord.Forbidden):
+            message = "You do not have permission to perform this action."
+        elif isinstance(error, commands.CommandOnCooldown):
+            message = f"Command is on cooldown. Please wait {error.retry_after:.2f} seconds."
+        elif isinstance(error, commands.MissingPermissions):
+            message = "You are missing required permissions."
+        elif isinstance(error, commands.MissingRequiredArgument):
+            message = "Missing a required argument."
+        else:
+            logging.error(f"Unhandled command error: {error}")
+            message = "An unexpected error occurred."
+
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except nextcord.errors.NotFound:
+            logging.error("Failed to send error message, interaction not found or expired.")
+        except Exception as e:
+            logging.error(f"Failed to send error message: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected error when handling command error: {e}")
+
 def setup_logging():
     if not os.path.exists('logs'):
         os.makedirs('logs')
@@ -13,7 +43,7 @@ def setup_logging():
     log_path = os.path.join('logs', log_filename)
 
     log_handler = RotatingFileHandler(
-        filename=log_path, 
+        filename=log_path,
         maxBytes=10**7,
         backupCount=6,
         encoding='utf-8'
@@ -34,30 +64,3 @@ def clean_logs(directory, max_logs):
 
     while len(log_files) > max_logs:
         os.remove(log_files.pop())
-        
-async def handle_errors(interaction, error):
-    try:
-        if isinstance(error, nextcord.NotFound):
-            message = "Interaction expired or not found."
-        elif isinstance(error, nextcord.HTTPException):
-            message = "HTTP error occurred."
-        elif isinstance(error, nextcord.Forbidden):
-            message = "You do not have permission to perform this action."
-        elif isinstance(error, commands.CommandOnCooldown):
-            message = f"Command is on cooldown. Please wait {error.retry_after:.2f} seconds."
-        elif isinstance(error, commands.MissingPermissions):
-            message = "You are missing required permissions."
-        elif isinstance(error, commands.MissingRequiredArgument):
-            message = "Missing a required argument."
-        else:
-            logging.error(f"Unhandled command error: {error}")
-            message = "An unexpected error occurred."
-
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
-    except nextcord.errors.NotFound:
-        logging.error("Failed to send error message, interaction not found or expired.")
-    except Exception as e:
-        logging.error(f"Unexpected error when handling command error: {e}")
