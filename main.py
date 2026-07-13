@@ -43,6 +43,17 @@ async def on_ready():
         bot.loop.create_task(self_ping_loop())
 
 @bot.event
+async def on_command_error(ctx, error):
+    # Ignore messages that look like commands but don't map to a real command
+    # (e.g. users typing "!startapps"). Don't spam the console with these.
+    if isinstance(error, commands.CommandNotFound):
+        return
+    if isinstance(error, commands.MissingPermissions):
+        logging.warning(f"Missing permissions for command in {ctx.guild}: {error}")
+        return
+    logging.error(f"Unhandled prefix command error: {error}")
+
+@bot.event
 async def on_guild_join(guild):
     print(f"Joined guild: {guild.name} (ID: {guild.id})")
 

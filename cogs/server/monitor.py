@@ -30,6 +30,50 @@ class EvrimaMonitorCog(commands.Cog):
         
         return embed
 
+    def _extract_field(self, response, key):
+        # Match "Key: value" where value runs until the next ", Key2:" or the end
+        # of the response. This tolerates added/removed/reordered fields so a
+        # game-server update can't break the whole parse.
+        match = re.search(rf"{re.escape(key)}:\s*(.*?)(?=,\s*\w+:|\Z)", response, re.DOTALL)
+        if not match:
+            return None
+        return match.group(1).strip()
+
+    def _parse_server_info(self, response):
+        def as_int(key, default=0):
+            raw = self._extract_field(response, key)
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                return default
+
+        def as_bool(key, default=False):
+            raw = self._extract_field(response, key)
+            if raw is None:
+                return default
+            return raw.lower() == "true"
+
+        return {
+            "ServerDetailsServerName": self._extract_field(response, "ServerDetailsServerName") or "N/A",
+            "ServerPassword": self._extract_field(response, "ServerPassword") or "",
+            "ServerMap": self._extract_field(response, "ServerMap") or "N/A",
+            "ServerMaxPlayers": as_int("ServerMaxPlayers"),
+            "ServerCurrentPlayers": as_int("ServerCurrentPlayers"),
+            "bEnableMutations": as_bool("bEnableMutations"),
+            "bEnableHumans": as_bool("bEnableHumans"),
+            "bServerPassword": as_bool("bServerPassword"),
+            "bQueueEnabled": as_bool("bQueueEnabled"),
+            "bServerWhitelist": as_bool("bServerWhitelist"),
+            "bSpawnAI": as_bool("bSpawnAI"),
+            "bAllowRecordingReplay": as_bool("bAllowRecordingReplay"),
+            "bUseRegionSpawning": as_bool("bUseRegionSpawning"),
+            "bUseRegionSpawnCooldown": as_bool("bUseRegionSpawnCooldown"),
+            "RegionSpawnCooldownTimeSeconds": as_int("RegionSpawnCooldownTimeSeconds"),
+            "ServerDayLengthMinutes": as_int("ServerDayLengthMinutes"),
+            "ServerNightLengthMinutes": as_int("ServerNightLengthMinutes"),
+            "bEnableGlobalChat": as_bool("bEnableGlobalChat"),
+        }
+
     async def get_server_info(self):
         try:
             rcon = EvrimaRCON(self.rcon_host, self.rcon_port, self.rcon_password)
@@ -37,54 +81,16 @@ class EvrimaMonitorCog(commands.Cog):
             command = b'\x02' + b'\x12' + b'\x00'
             response = await rcon.send_command(command)
 
-            # This regex pattern is used to extract the rcon response into a dictionary.
-            # Not really using all of it but just making sure I extracted it.
-            pattern = (
-                r"ServerDetailsServerName:\s*(.*?), "
-                r"ServerPassword:\s*(.*?), "
-                r"ServerMap:\s*(.*?), "
-                r"ServerMaxPlayers:\s*(-?\d+), "
-                r"ServerCurrentPlayers:\s*(-?\d+), "
-                r"bEnableMutations:\s*(true|false), "
-                r"bEnableHumans:\s*(true|false), "
-                r"bServerPassword:\s*(true|false), "
-                r"bQueueEnabled:\s*(true|false), "
-                r"bServerWhitelist:\s*(true|false), "
-                r"bSpawnAI:\s*(true|false), "
-                r"bAllowRecordingReplay:\s*(true|false), "
-                r"bUseRegionSpawning:\s*(true|false), "
-                r"bUseRegionSpawnCooldown:\s*(true|false), "
-                r"RegionSpawnCooldownTimeSeconds:\s*(-?\d+), "
-                r"ServerDayLengthMinutes:\s*(-?\d+), "
-                r"ServerNightLengthMinutes:\s*(-?\d+), "
-                r"bEnableGlobalChat:\s*(true|false)"
-            )
-            match = re.search(pattern, response)
+            server_info = self._parse_server_info(response)
 
-            if match:
-                server_info = {
-                    "ServerDetailsServerName": match.group(1),
-                    "ServerPassword": match.group(2),
-                    "ServerMap": match.group(3),
-                    "ServerMaxPlayers": int(match.group(4)),
-                    "ServerCurrentPlayers": int(match.group(5)),
-                    "bEnableMutations": match.group(6) == "true",
-                    "bEnableHumans": match.group(7) == "true",
-                    "bServerPassword": match.group(8) == "true",
-                    "bQueueEnabled": match.group(9) == "true",
-                    "bServerWhitelist": match.group(10) == "true",
-                    "bSpawnAI": match.group(11) == "true",
-                    "bAllowRecordingReplay": match.group(12) == "true",
-                    "bUseRegionSpawning": match.group(13) == "true",
-                    "bUseRegionSpawnCooldown": match.group(14) == "true",
-                    "RegionSpawnCooldownTimeSeconds": int(match.group(15)),
-                    "ServerDayLengthMinutes": int(match.group(16)),
-                    "ServerNightLengthMinutes": int(match.group(17)),
-                    "bEnableGlobalChat": match.group(18) == "true",
-                }
+            if server_info and server_info.get("ServerMaxPlayers"):
                 return server_info
             else:
-                logging.error("Pattern did not match the response format.")
+                # Only log the raw response for debugging; do not spam the loop.
+                logging.warning(
+                    "Could not parse server info from RCON response. "
+                    f"Response was: {response!r}"
+                )
                 return None
         except Exception as e:
             logging.error(f"Error retrieving server info: {e}")
