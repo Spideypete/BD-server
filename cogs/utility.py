@@ -23,7 +23,7 @@ class Utility(commands.Cog):
         for guild in guilds:
             embed.add_field(name=guild.name, value=f"ID: {guild.id}", inline=False)
         
-        embed.set_footer(text="Created by Spidey")
+        embed.set_footer(text="Created by KoZ")
 
         await interaction.response.send_message(embed=embed)
 

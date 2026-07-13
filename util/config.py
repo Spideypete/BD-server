@@ -1,12 +1,9 @@
 from dotenv import load_dotenv
 import os
-import sys
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    sys.exit("FATAL: BOT_TOKEN environment variable is not set. Please add it as a secret before running the bot.")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "default_bot_token")
 BOT_PREFIX = os.getenv("BOT_PREFIX", "!")
 RCON_HOST = os.getenv("RCON_HOST", "localhost")
 RCON_PORT = int(os.getenv("RCON_PORT", 25575))
